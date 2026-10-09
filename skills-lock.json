@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "book-to-skill": {
+      "source": "virgiliojr94/book-to-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "5f4e09bc18ad4d798a22b2c0b0eba534543e87a302c1dd9bde206570e83c3375"
+    }
+  }
+}
