@@ -672,26 +672,34 @@ The real-directory guard is required: `ln -sfn` into an existing real directory 
 
 Skip this when the user chose a host-private or project-local root (Step 5, rules 3-4).
 
-Then clean up the extraction workdir:
+Then clean up the extraction workdir. Remove **the work directory this run actually used** — the
+`Workdir ->` path from the extraction output, which is also stored as `workdir` in
+`metadata.json`. Never delete a directory you did not create: another extraction may be
+running beside yours, and `BOOK_SKILL_WORKDIR` may point at a directory that holds other files.
+
+Delete it only if it looks like an extractor workdir: it must contain both `metadata.json`
+and `full_text.txt`, and must not be `/`, `$HOME`, or the current directory. Otherwise skip
+the deletion and tell the user the path so they can remove it themselves.
+
+```bash
+# WORKDIR is the path this run reported; quote it in case of spaces.
+WORKDIR_REAL="$(cd "$WORKDIR" 2>/dev/null && pwd -P)"
+if [ -n "$WORKDIR_REAL" ] \
+   && [ "$WORKDIR_REAL" != "/" ] && [ "$WORKDIR_REAL" != "$HOME" ] && [ "$WORKDIR_REAL" != "$PWD" ] \
+   && [ -f "$WORKDIR_REAL/metadata.json" ] && [ -f "$WORKDIR_REAL/full_text.txt" ]; then
+  rm -rf -- "$WORKDIR_REAL"
+else
+  echo "Not deleting '$WORKDIR': does not look like an extractor workdir." >&2
+fi
+```
+
+Equivalently, if you still have the metadata file (same guard):
 
 ```bash
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   PYTHON_BIN="python"
 fi
-
-Remove **the work directory this run actually used** — the `Workdir ->` path from the
-extraction output, which is also stored as `workdir` in `metadata.json`. Never delete a
-directory you did not create: another extraction may be running beside yours.
-
-```bash
-# WORKDIR is the path this run reported; quote it in case of spaces.
-rm -rf "$WORKDIR"
-```
-
-Equivalently, if you still have the metadata file:
-
-```bash
 "$PYTHON_BIN" - "$WORKDIR_METADATA_JSON" <<'PY'
 import json
 import shutil
@@ -701,7 +709,12 @@ from pathlib import Path
 meta_path = Path(sys.argv[1])
 workdir = json.loads(meta_path.read_text(encoding="utf-8")).get("workdir")
 if workdir:
-    shutil.rmtree(workdir, ignore_errors=True)
+    wd = Path(workdir).resolve()
+    if (wd not in (Path("/"), Path.home().resolve(), Path.cwd().resolve())
+            and (wd / "metadata.json").is_file() and (wd / "full_text.txt").is_file()):
+        shutil.rmtree(wd, ignore_errors=True)
+    else:
+        print(f"Not deleting {workdir}: does not look like an extractor workdir.", file=sys.stderr)
 PY
 ```
 
