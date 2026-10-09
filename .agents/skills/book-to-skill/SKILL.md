@@ -239,7 +239,11 @@ if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
   PYTHON_BIN="python"
 fi
 
-"$PYTHON_BIN" "$SCRIPT_PATH" $INPUT_PATHS --mode <BOOK_TYPE> --install-missing ask
+# Pass every input path as its own quoted element (paths with spaces or shell
+# metacharacters must not be word-split or expanded). Expand directories/globs to
+# concrete files in Step 1 first, then list them here:
+INPUT_PATHS=("<path-1>" "<path-2>")
+"$PYTHON_BIN" "$SCRIPT_PATH" "${INPUT_PATHS[@]}" --mode <BOOK_TYPE> --install-missing ask
 ```
 
 Before extraction, the script checks optional Python packages needed for the detected format. If a better extractor is missing, it prompts the user with the available fallback. Non-interactive sessions default to fallback unless install mode is explicitly `yes`.
